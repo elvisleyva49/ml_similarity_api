@@ -24,7 +24,10 @@ class SimilarityEngine:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         
-        self.model_name = model_name
+        # Usar modelo más pequeño para deploy
+        is_production = os.getenv("ENVIRONMENT") == "production"
+        self.model_name = "ViT-B-16" if is_production else model_name
+        
         self.model = None
         self.preprocess = None
         
@@ -33,21 +36,30 @@ class SimilarityEngine:
         self.product_metadata = {}  # product_id -> metadata
         self.indexed_urls = {}  # url_hash -> product_id
         
-        # Cargar modelo CLIP
-        self._load_clip_model()
+        # Cargar modelo CLIP (lazy loading en producción)
+        if not is_production:
+            self._load_clip_model()
         
     def _load_clip_model(self):
-        """Cargar modelo CLIP"""
+        """Cargar modelo CLIP (optimizado para producción)"""
+        if self.model is not None:
+            return  # Ya está cargado
+            
         try:
             logger.info(f"🤖 Cargando modelo CLIP: {self.model_name}")
+            
+            # En producción usar modelo más ligero
+            is_production = os.getenv("ENVIRONMENT") == "production"
+            pretrained = 'openai' if is_production else 'laion2b_s34b_b79k'
+            
             self.model, _, self.preprocess = open_clip.create_model_and_transforms(
                 self.model_name, 
-                pretrained='laion2b_s34b_b79k'
+                pretrained=pretrained
             )
             self.model.eval()
             
-            # Usar GPU si está disponible
-            if torch.cuda.is_available():
+            # Solo CPU en producción para ahorrar RAM
+            if torch.cuda.is_available() and not is_production:
                 self.model = self.model.cuda()
                 logger.info("🚀 Usando GPU para CLIP")
             else:
@@ -96,11 +108,16 @@ class SimilarityEngine:
     def _extract_features(self, image: Image.Image) -> np.ndarray:
         """Extraer características de una imagen usando CLIP"""
         try:
+            # Cargar modelo si no está cargado (lazy loading)
+            if self.model is None:
+                self._load_clip_model()
+            
             # Preprocesar imagen
             image_input = self.preprocess(image).unsqueeze(0)
             
-            # Mover a GPU si está disponible
-            if torch.cuda.is_available():
+            # Solo CPU en producción para ahorrar RAM
+            is_production = os.getenv("ENVIRONMENT") == "production"
+            if torch.cuda.is_available() and not is_production:
                 image_input = image_input.cuda()
             
             # Extraer características

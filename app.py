@@ -41,21 +41,27 @@ async def lifespan(app: FastAPI):
         logger.info(f"📊 Configurando Firestore para proyecto: {FIREBASE_PROJECT_ID}")
         firestore_client = FirestoreClient(project_id=FIREBASE_PROJECT_ID, dev_mode=dev_mode)
         
-        # Inicializar motor de similitud
-        logger.info("🤖 Cargando modelo CLIP...")
+        # Inicializar motor de similitud (sin cargar modelo aún)
+        logger.info("🤖 Inicializando motor de similitud...")
         similarity_engine = SimilarityEngine()
         
-        # Sincronizar productos (demo o Firestore)
-        logger.info("🔄 Sincronizando productos...")
-        productos = await firestore_client.get_productos()
+        # En producción, no sincronizar inmediatamente para ahorrar RAM
+        is_production = os.getenv("ENVIRONMENT") == "production"
         
-        if productos:
-            await similarity_engine.sync_products(productos)
-            logger.info("✅ API lista! Productos indexados: {}".format(
-                similarity_engine.get_indexed_count()
-            ))
+        if not is_production:
+            # Sincronizar productos solo en desarrollo
+            logger.info("🔄 Sincronizando productos...")
+            productos = await firestore_client.get_productos()
+            
+            if productos:
+                await similarity_engine.sync_products(productos)
+                logger.info("✅ API lista! Productos indexados: {}".format(
+                    similarity_engine.get_indexed_count()
+                ))
+            else:
+                logger.warning("⚠️ No hay productos para indexar")
         else:
-            logger.warning("⚠️ No hay productos para indexar")
+            logger.info("✅ API lista en modo producción! (sincronización bajo demanda)")
         
     except Exception as e:
         logger.error(f"❌ Error en startup: {e}")
