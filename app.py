@@ -126,6 +126,23 @@ async def health_check():
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=500, detail="Service unhealthy")
 
+async def ensure_products_loaded():
+    """Asegurar que los productos estén cargados (lazy loading)"""
+    global similarity_engine, firestore_client
+    
+    # Si ya hay productos indexados, no hacer nada
+    if similarity_engine and similarity_engine.get_indexed_count() > 0:
+        return
+    
+    logger.info("🔄 Primera request - sincronizando productos...")
+    try:
+        productos = await firestore_client.get_productos()
+        if productos:
+            await similarity_engine.sync_products(productos)
+            logger.info(f"✅ Productos sincronizados: {similarity_engine.get_indexed_count()}")
+    except Exception as e:
+        logger.error(f"❌ Error sincronizando productos: {e}")
+
 @app.post("/search-similar", response_model=SimilarityResponse)
 async def search_similar_images(request: SimilarityRequest):
     """
@@ -136,6 +153,9 @@ async def search_similar_images(request: SimilarityRequest):
     try:
         if not similarity_engine:
             raise HTTPException(status_code=503, detail="Similarity engine not initialized")
+        
+        # Asegurar que los productos estén cargados
+        await ensure_products_loaded()
         
         logger.info(f"🔍 Buscando similares para: {request.image_url[:50]}...")
         

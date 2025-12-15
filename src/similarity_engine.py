@@ -26,7 +26,7 @@ class SimilarityEngine:
         
         # Usar modelo más pequeño para deploy
         is_production = os.getenv("ENVIRONMENT") == "production"
-        self.model_name = "ViT-B-16" if is_production else model_name
+        self.model_name = "RN50" if is_production else model_name
         
         self.model = None
         self.preprocess = None
@@ -36,9 +36,7 @@ class SimilarityEngine:
         self.product_metadata = {}  # product_id -> metadata
         self.indexed_urls = {}  # url_hash -> product_id
         
-        # Cargar modelo CLIP (lazy loading en producción)
-        if not is_production:
-            self._load_clip_model()
+        logger.info(f"✅ Motor de similitud inicializado (modelo: {self.model_name}, lazy loading habilitado)")
         
     def _load_clip_model(self):
         """Cargar modelo CLIP (optimizado para producción)"""
@@ -46,14 +44,20 @@ class SimilarityEngine:
             return  # Ya está cargado
             
         try:
-            logger.info(f"🤖 Cargando modelo CLIP: {self.model_name}")
-            
-            # En producción usar modelo más ligero
             is_production = os.getenv("ENVIRONMENT") == "production"
-            pretrained = 'openai' if is_production else 'laion2b_s34b_b79k'
+            
+            if is_production:
+                # En producción usar el modelo MÁS PEQUEÑO disponible
+                model_name = "RN50"  # ResNet50 - el más ligero
+                pretrained = "openai"
+                logger.info(f"🤖 Cargando modelo CLIP ultra-ligero para producción: {model_name}")
+            else:
+                model_name = self.model_name
+                pretrained = 'laion2b_s34b_b79k'
+                logger.info(f"🤖 Cargando modelo CLIP: {model_name}")
             
             self.model, _, self.preprocess = open_clip.create_model_and_transforms(
-                self.model_name, 
+                model_name, 
                 pretrained=pretrained
             )
             self.model.eval()
