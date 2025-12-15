@@ -1,18 +1,17 @@
 services:
   - type: web
     name: leyvacar-ml-api
-    env: python
+    env: docker
     region: oregon
     plan: free
-    buildCommand: pip install --no-cache-dir --timeout 1000 -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: FIREBASE_PROJECT_ID
         value: leyvacarsmovil
       - key: ENVIRONMENT
         value: production
-      - key: PYTHONUNBUFFERED
-        value: 1
+      - key: PORT
+        value: 8000
     scaling:
       minInstances: 0
       maxInstances: 1
