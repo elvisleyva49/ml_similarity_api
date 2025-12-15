@@ -1,0 +1,45 @@
+# LeyvaCars ML Similarity API
+
+# Cache de imágenes
+cache/
+
+# Modelos de ML (se descargan automáticamente)
+models/
+
+# Credenciales de Firebase
+serviceAccountKey.json
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Índices FAISS temporales
+*.index
+*.npy
+
+# Archivos de prueba
+test_images/
+temp/
